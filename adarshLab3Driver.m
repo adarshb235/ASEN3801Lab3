@@ -6,11 +6,18 @@ close all;
 
 data = readmatrix("2026_02_10_002_04_RW_T20t210");
 
+nanRows = any(isnan(data), 2);
+
+zeroRows = (data(:, 1) == 0) | (data(:, 4) == 0); 
+
+data(nanRows | zeroRows, :) = [];
+
+data(data(:,3) == 0, :) = [];
+
 time = data(:, 1) / 1000; % [s]
 comTorque = data(:, 2) / 1000;
 angVel = data(:, 3) .* (2 * pi / 60);
 current = data(:, 4);
-
 
 Kt = 33.5 / 1000; % from data sheet
 
@@ -19,16 +26,43 @@ t_lin = time(range);
 angVel_lin = angVel(range);
 current_lin = current(range);
 
+figure;
+plot(t_lin, angVel_lin, 'b-','LineWidth',1.5);
+xlabel('Time (s)');
+ylabel('Angular Velocity (rad/s)');
+title('Linear Fit Region: Angular Velocity vs Time');
+grid on;
+hold on;
+% plot linear fit for visualization
+p_vis = polyfit(t_lin, angVel_lin, 1);
+plot(t_lin, polyval(p_vis, t_lin), 'r--','LineWidth',1.2);
+legend('Measured \omega','Linear fit','Location','best');
+hold off;
+
 torque_app = mean(current_lin) * Kt;
 p = polyfit(t_lin, angVel_lin, 1);
 angAcc = p(1);
 
 I_rw = torque_app / angAcc;
 
+max_rpm = 4000;
+w_max = max_rpm * 2 * pi / 60;
+h_max = I_rw * w_max;
+
+t_aero = 1e-4;
+t_sat = h_max / t_aero;
+
 %% SC Gains Calc
 
 data = readmatrix("2026_02_24_002_04_SC_T10t5");
 
+nanRows = any(isnan(data), 2);
+
+zeroRows = (data(:, 1) == 0) | (data(:, 4) == 0); 
+
+data(nanRows | zeroRows, :) = [];
+
+data(data(:,3) == 0, :) = [];
 
 time_sc = data(:, 1) / 1000; % [s]
 comTorque_sc = data(:, 2) / 1000;
@@ -42,9 +76,22 @@ t_lin_sc = time_sc(range_sc);
 angVel_lin_sc = angVel_sc(range_sc);
 current_lin_sc = current_sc(range_sc);
 
+
 torque_app_sc = mean(current_lin_sc) * Kt_sc;
 p = polyfit(t_lin_sc, angVel_lin_sc, 1);
 angAcc_sc = p(1);
+
+figure;
+plot(t_lin_sc, angVel_lin_sc, 'b-','LineWidth',1.5);
+xlabel('Time (s)');
+ylabel('Angular Velocity (rad/s)');
+title('Linear Fit Region (SC): Angular Velocity vs Time');
+grid on;
+hold on;
+p_vis_sc = polyfit(t_lin_sc, angVel_lin_sc, 1);
+plot(t_lin_sc, polyval(p_vis_sc, t_lin_sc), 'r--','LineWidth',1.2);
+legend('Measured \omega (SC)','Linear fit (SC)','Location','best');
+hold off;
 
 I_sc = abs(torque_app_sc / angAcc_sc);
 
